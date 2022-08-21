@@ -1,0 +1,103 @@
+This work utilizes SODIUM Library to study how encryption and decryption works and therebey defining principles like Confidentiality and Integrity.
+User from a client system uses socket programming to connect with the server. 
+The personal information of the user is packed through a structure in C and the structure is referenced through a pointer to be encrypted through SODIUM Library.
+This encrypted information is sent to the server using Socket programming. The server sends back the information by varying the sent information.
+We receive the message and decrypt it to check whether we received the original message.
+If the response is different, the process is repeated until the response is correct.
+
+
+Code:
+
+#include <stdio.h>
+#include <string.h>
+#include <sodium.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#define TOKEN_SIZE 128
+#define PAYLOAD_SIZE crypto_secretbox_MACBYTES + TOKEN_SIZE
+#define MSG_ASK "Can I get the solution to the challenge, please?"
+#define STATUS_BAD 0
+#define STATUS_GOOD 1
+#define DEST_IP "192.168.1.77"
+#define DEST_PORT 4000
+#define variant sodium_base64_VARIANT_ORIGINAL
+
+
+int main()
+{
+struct message {
+int hacker_id; /* this is just the number part of the ID */
+int status;
+unsigned char nonce[crypto_secretbox_NONCEBYTES];
+unsigned char payload[PAYLOAD_SIZE];
+};
+
+int sockfd;
+struct sockaddr_in dest_addr;
+if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+{
+printf("\n Socket creation error \n");
+}
+dest_addr.sin_family = PF_INET;
+dest_addr.sin_port = htons(DEST_PORT);
+dest_addr.sin_addr.s_addr = inet_addr(DEST_IP);
+memset(&(dest_addr.sin_zero), '\0', 8);
+if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0)
+{
+printf("\n Connection Filed \n");
+}
+
+struct message message1, message2;
+message1.hacker_id = 49;
+
+char k;
+char key1[crypto_secretbox_KEYBYTES] = {0};
+FILE *fptr1;
+fptr1 = fopen("key", "r");
+int i=0;
+while(i<crypto_secretbox_KEYBYTES)
+{
+k = fgetc(fptr1);
+key1[i] = key1[i] + k;
+i++;
+}
+
+unsigned char hash[crypto_generichash_BYTES];
+unsigned char key2[crypto_generichash_KEYBYTES];
+randombytes_buf(key2, sizeof key2);
+unsigned char decrypted[TOKEN_SIZE];
+unsigned char m[128] = "Can I get the solution to the challenge, please?\0";
+struct message *struct_pointer1;
+struct message *struct_pointer2;
+struct_pointer1 = &message1;
+struct_pointer2 = &message2;
+
+randombytes_buf(message1.nonce, crypto_secretbox_NONCEBYTES);
+crypto_secretbox_easy(message1.payload, m, TOKEN_SIZE, message1.nonce, key1);
+while(1)
+{
+send(sockfd, struct_pointer1, sizeof(struct message), 0);
+recv(sockfd, struct_pointer2, sizeof(struct message), 0);
+printf("%d\n", message2.status);
+if (crypto_secretbox_open_easy(decrypted, message2.payload, PAYLOAD_SIZE, message2.nonce, key1) !=0)
+{
+printf("\n message forged \n");
+}
+else{
+printf("\n success \n");
+break;
+}
+}
+
+int bin_len;
+crypto_generichash(hash, crypto_generichash_BYTES, decrypted, TOKEN_SIZE, NULL, 0);
+sodium_base64_encoded_len((size_t*)bin_len,variant);
+char b64[bin_len];
+sodium_bin2base64(b64, bin_len, hash, crypto_generichash_BYTES, variant);
+printf("%s", b64);
+close(sockfd);
+}
+
