@@ -1,0 +1,78 @@
+A Bash script is developed that takes input of public - private key pairs and a file.
+Digital Envelope is developed where the file is encrypted and digitally signed using sender's private key. The secret key is now encrypted using receiver's public key.
+On the receiver part, digital signature is verified using sender's public key, secret key is obtained by decrypting with receiver's private key.
+Finally, the file is decrypted with the obtained secret key.
+Here, there is one sender and three receivers.
+
+Bash Script:
+
+#!/bin/bash
+# Encryption Part
+if { [[ "$1" == "-e" ]] && [[ $# == 7 ]]; }
+then
+       if { [[ "$2" == *.pub ]] && [[ "$3" == *.pub ]]; } && { [[ "$4" == *.pub ]] && [[ "$5" == *.priv ]]; } && { [[ "$6" == *.txt ]] && [[ "$7" == *.zip ]]; }
+       then
+            # Generating a secret key which is a Symmetric key
+            secret_key=$(openssl rand -base64 128)
+            echo $secret_key > key
+            # Encrypting message file using the secret key
+            openssl enc -aes-256-cbc -in $6 -pass file:key -out encrypted_message.enc -pbkdf2
+            echo "Encryption is Completed"
+            # Digitally Signing the encrypted file using the sender's private key
+            openssl dgst -sha256 -sign $5 -out digitally_signed.enc encrypted_message.enc
+            echo "Digitally Signed the Hash"
+            # Encrypting the secret key using receiver public key
+            openssl rsautl -encrypt -pubin -inkey $2 -in key -out encryptedkey1.enc
+            openssl rsautl -encrypt -pubin -inkey $3 -in key -out encryptedkey2.enc
+            openssl rsautl -encrypt -pubin -inkey $4 -in key -out encryptedkey3.enc
+            echo "Encryption of secret key using receiver public key is completed"
+            # Zipping the files
+            zip -q -m $7 encryptedkey1.enc encryptedkey2.enc encryptedkey3.enc encrypted_message.enc digitally_signed.enc
+            echo "Zipped"
+       else
+           >&2 echo "ERROR valluripalli.v: Please pass correct order of keys"
+       fi
+
+# Decryption Part
+elif { [[ "$1" == "-d" ]] && [[ $# == 5 ]]; }
+
+then
+       if { [[ "$2" == *.priv ]] && [[ "$3" == *.pub ]]; } && { [[ "$4" == *.zip ]] && [[ "$5" == *.txt ]]; }
+       then
+            # Unzipping the files
+            unzip -q $4
+            echo "Unzipped"
+            # Verifying the Signature using sender public key
+            resultfile=$(openssl dgst -sha256 -verify $3 -signature digitally_signed.enc encrypted_message.enc)
+            if [[ $resultfile == *"OK"* ]]
+            then
+                   echo "Digital Signature Verified"
+            else
+                 >&2 echo "ERROR valluripalli.v: Digital Signature Verification Failed"
+            fi
+            # Decrypting the secret key using receiver private key
+            if [[ "$2" == *"1.priv"* ]]
+            then
+                   openssl rsautl -decrypt -inkey $2 -in encryptedkey1.enc > decryptedkey_secret.dec
+            elif [[ "$2" == *"2.priv"* ]]
+            then
+                   openssl rsautl -decrypt -inkey $2 -in encryptedkey2.enc > decryptedkey_secret.dec
+            elif [[ "$2" == *"3.priv"* ]]
+            then
+                   openssl rsautl -decrypt -inkey $2 -in encryptedkey3.enc > decryptedkey_secret.dec
+            fi
+            echo "Decryption of secret key is done"
+            # Decrypting the encrypted file using the obtained secret key
+            openssl enc -d -aes-256-cbc -in encrypted_message.enc -pass file:decryptedkey_secret.dec -out $5 -pbkdf2
+            echo "Message is Decrypted:"
+            cat $5
+            rm decryptedkey_secret* digitally_signed.enc encrypted_message.enc encryptedkey*
+        else
+            >&2 echo "ERROR valluripalli.v: Provide Correct Input"
+        fi
+else
+       >&2 echo "ERROR valluripalli.v: Please pass correct arguments"
+fi
+
+
+
